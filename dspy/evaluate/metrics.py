@@ -90,7 +90,8 @@ def normalize_text(s):
     Steps:
         1) Unicode NFD normalization
         2) lowercasing
-        3) punctuation removal
+        3) punctuation removal: ASCII punctuation and symbols (`string.punctuation`)
+           and Unicode punctuation such as curly quotes, ellipses and full-width marks
         4) English article removal ("a", "an", "the")
         5) whitespace collapse
 
@@ -103,6 +104,7 @@ def normalize_text(s):
     Examples:
         ```python
         normalize_text("The,  Eiffel  Tower!")  # "eiffel tower"
+        normalize_text("“Paris”")  # "paris"
         ```
     """
     s = unicodedata.normalize("NFD", s)
@@ -115,7 +117,7 @@ def normalize_text(s):
 
     def remove_punc(text):
         exclude = set(string.punctuation)
-        return "".join(ch for ch in text if ch not in exclude)
+        return "".join(ch for ch in text if ch not in exclude and not unicodedata.category(ch).startswith("P"))
 
     def lower(text):
         return text.lower()
