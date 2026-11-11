@@ -3,7 +3,7 @@
 import pytest
 
 import dspy
-from dspy.evaluate.metrics import EM, F1, answer_exact_match, normalize_text
+from dspy.evaluate.metrics import EM, F1, answer_exact_match, answer_passage_match, normalize_text
 from dspy.predict import Predict
 
 
@@ -50,7 +50,7 @@ def test_answer_exact_match_no_match():
         ("\uff0842\uff09", "42"),  # full-width parentheses
     ],
 )
-def test_unicode_punctuation_is_removed_like_ascii(prediction, gold):
+def test_unicode_punctuation_is_removed(prediction, gold):
     assert normalize_text(prediction) == normalize_text(gold)
     assert EM(prediction, [gold])
     assert F1(prediction, [gold]) == 1.0
@@ -67,3 +67,17 @@ def test_answer_exact_match_ignores_curly_quotes():
     example = dspy.Example(question="Capital of France?", answer="Paris").with_inputs("question")
     assert answer_exact_match(example, dspy.Prediction(answer="\u201cParis\u201d"))
     assert answer_exact_match(example, dspy.Prediction(answer="It is \u201cParis\u201d."), frac=0.5)
+
+
+@pytest.mark.parametrize(
+    ("answer", "passage"),
+    [
+        ("1990", "He served from 1990\u20131995."),  # en-dash range
+        ("Paris", "France\u2014Paris\u2014is large."),  # unspaced em dashes
+        ("\u4e0a\u6d77", "\u5317\u4eac\u3001\u4e0a\u6d77\u3001\u5e7f\u5dde"),  # ideographic comma
+        ("Paris", "The capital is \u201cParis\u201d."),  # curly quotes
+    ],
+)
+def test_answer_passage_match_with_unicode_punctuation(answer, passage):
+    example = dspy.Example(question="q", answer=answer).with_inputs("question")
+    assert answer_passage_match(example, dspy.Prediction(context=[passage]))

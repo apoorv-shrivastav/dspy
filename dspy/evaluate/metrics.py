@@ -91,7 +91,8 @@ def normalize_text(s):
         1) Unicode NFD normalization
         2) lowercasing
         3) punctuation removal: ASCII punctuation and symbols (`string.punctuation`)
-           and Unicode punctuation such as curly quotes, ellipses and full-width marks
+           and Unicode punctuation (general category P*), e.g. curly quotes and
+           ellipses. Full-width symbols, letters and digits are not folded.
         4) English article removal ("a", "an", "the")
         5) whitespace collapse
 
@@ -258,15 +259,30 @@ def precision_score(prediction, ground_truth):
     return precision
 
 
+def _unicode_punctuation_to_space(text: str) -> str:
+    """Replace non-ASCII punctuation with a space.
+
+    `normalize_text` deletes punctuation. In a passage, Unicode punctuation such as an
+    unspaced em dash, an en-dash range or a CJK enumeration comma separates words, so
+    deleting it would merge them and hide the answer from the token search.
+    """
+    return "".join(
+        " " if ch not in string.punctuation and unicodedata.category(ch).startswith("P") else ch for ch in text
+    )
+
+
 def _passage_match(passages: list[str], answers: list[str]) -> bool:
     """Return True if any passage contains any answer (normalized & DPR-normalized)."""
     from dspy.dsp.utils import DPR_normalize, has_answer
 
+    def normalize(text: str) -> str:
+        return normalize_text(_unicode_punctuation_to_space(text))
+
     def passage_has_answers(passage: str, answers: list[str]) -> bool:
         """Return True if the passage contains any of the answers."""
         return has_answer(
-            tokenized_answers=[DPR_normalize(normalize_text(ans)) for ans in answers],
-            text=normalize_text(passage),
+            tokenized_answers=[DPR_normalize(normalize(ans)) for ans in answers],
+            text=normalize(passage),
         )
 
     return any(passage_has_answers(psg, answers) for psg in passages)
